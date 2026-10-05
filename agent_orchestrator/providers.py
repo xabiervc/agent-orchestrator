@@ -22,4 +22,4 @@ def build_command(route: Route, prompt_path: str, working_directory: str = ".") 
         command = ["copilot", "--prompt-file", prompt_path]
     else:
         command = [route.provider, "--prompt-file", prompt_path]
-    return CommandPlan(route.provider, command, {}, [f"Run from {working_directory}.", "Credentials must be provided by the provider CLI."])
+    return CommandPlan(route.provider, command, {}, [f"Run from {working_directory}.", "Credentials must be provided by the provider CLI.", "This is a command plan; the core does not execute it."])

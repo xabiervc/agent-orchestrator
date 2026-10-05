@@ -1,10 +1,10 @@
 {
-  "generic": {"kind": "software", "capabilities": ["source_editing", "automated_tests"]},
-  "godot": {"kind": "game", "engine": "godot", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "persistence", "asset_pipeline"]},
-  "unreal": {"kind": "game", "engine": "unreal", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline"]},
-  "unity": {"kind": "game", "engine": "unity", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline"]},
-  "mobile": {"kind": "mobile", "capabilities": ["source_editing", "automated_tests", "packaging", "device_evidence"]},
-  "web": {"kind": "web", "capabilities": ["source_editing", "automated_tests", "browser_evidence", "packaging"]},
-  "desktop": {"kind": "desktop", "capabilities": ["source_editing", "automated_tests", "packaging", "runtime_launch"]},
-  "backend": {"kind": "backend", "capabilities": ["source_editing", "automated_tests", "packaging"]}
+  "generic": {"kind": "software", "capabilities": ["source_editing", "automated_tests"], "risk_areas": ["source", "dependencies"]},
+  "godot": {"kind": "game", "engine": "godot", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "persistence", "asset_pipeline"], "risk_areas": ["project_settings", "autoloads", "save_data", "scenes"]},
+  "unreal": {"kind": "game", "engine": "unreal", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline"], "risk_areas": ["build_target", "blueprints", "gameplay_code", "assets"]},
+  "unity": {"kind": "game", "engine": "unity", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline"], "risk_areas": ["project_settings", "scenes", "assets", "packages"]},
+  "mobile": {"kind": "mobile", "capabilities": ["source_editing", "automated_tests", "packaging", "device_evidence"], "risk_areas": ["signing", "permissions", "platform_configuration"]},
+  "web": {"kind": "web", "capabilities": ["source_editing", "automated_tests", "browser_evidence", "packaging"], "risk_areas": ["build", "routing", "security"]},
+  "desktop": {"kind": "desktop", "capabilities": ["source_editing", "automated_tests", "packaging", "runtime_launch"], "risk_areas": ["packaging", "platform_configuration"]},
+  "backend": {"kind": "backend", "capabilities": ["source_editing", "automated_tests", "packaging"], "risk_areas": ["data_migrations", "security", "deployment"]}
 }

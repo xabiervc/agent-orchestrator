@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-import json
 import uuid
 
+from .artifacts import write_json
 from .config import ProjectConfig
+from .schemas import consensus_artifact, task_artifact
 
 
 def create_run(root: Path, config: ProjectConfig, task: str) -> Path:
@@ -13,14 +14,6 @@ def create_run(root: Path, config: ProjectConfig, task: str) -> Path:
     run = root / ".agent" / "runs" / run_id
     for child in ("proposals", "reviews", "prompts", "evidence"):
         (run / child).mkdir(parents=True, exist_ok=True)
-    (run / "task.json").write_text(json.dumps({"run_id": run_id, "task": task, "project": config.raw}, indent=2) + "\n", encoding="utf-8")
-    (run / "consensus.json").write_text(json.dumps({"decision": "pending", "run_id": run_id}, indent=2) + "\n", encoding="utf-8")
+    write_json(run / "task.json", task_artifact(run_id, task, config.raw))
+    write_json(run / "consensus.json", consensus_artifact(run_id))
     return run
-
-
-def latest_run(root: Path) -> Path | None:
-    runs = root / ".agent" / "runs"
-    if not runs.exists():
-        return None
-    candidates = sorted((p for p in runs.iterdir() if p.is_dir()), reverse=True)
-    return candidates[0] if candidates else None

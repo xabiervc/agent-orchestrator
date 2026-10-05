@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import json
+from .artifacts import read_json, list_artifacts
 
 
 def validate_run(run: Path) -> list[str]:
@@ -12,12 +12,15 @@ def validate_run(run: Path) -> list[str]:
             errors.append(f"Missing {filename}.")
             continue
         try:
-            json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
+            read_json(path)
+        except ValueError as exc:
             errors.append(f"Invalid JSON in {filename}: {exc}.")
-    consensus = run / "consensus.json"
-    if consensus.exists():
-        data = json.loads(consensus.read_text(encoding="utf-8"))
-        if data.get("decision") == "approve" and not list((run / "proposals").glob("*.json")):
-            errors.append("Approved consensus cannot exist without proposals.")
+    consensus_path = run / "consensus.json"
+    if consensus_path.exists():
+        consensus = read_json(consensus_path)
+        if consensus.get("decision") == "approve":
+            if not list_artifacts(run / "proposals"):
+                errors.append("Approved consensus requires proposal artifacts.")
+            if not list_artifacts(run / "reviews"):
+                errors.append("Approved consensus requires review artifacts.")
     return errors
