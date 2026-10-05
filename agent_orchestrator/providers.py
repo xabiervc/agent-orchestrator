@@ -5,6 +5,8 @@ import shutil
 
 from .models import Route
 
+FORBIDDEN_ARGUMENTS = {"--api-key", "--token", "--password", "--secret"}
+
 
 @dataclass(frozen=True)
 class CommandPlan:
@@ -31,6 +33,8 @@ def build_command(route: Route, prompt_path: str, working_directory: str = ".") 
         command = ["copilot", "--prompt-file", prompt_path]
     else:
         command = [route.provider, "--prompt-file", prompt_path]
+    if any(argument in FORBIDDEN_ARGUMENTS for argument in command):
+        raise ValueError("Command plan contains a forbidden credential argument.")
     return CommandPlan(route.provider, command, {}, [f"Run from {working_directory}.", "Credentials must be provided by the provider CLI.", "This is a command plan; the core does not execute it."])
 
 
