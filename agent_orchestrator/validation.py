@@ -9,23 +9,34 @@ from .artifacts import list_artifacts, read_json
 SCHEMA_VERSION = 1
 VALID_STATUSES = {"completed", "pending"}
 BLOCKED_STATUSES = {"failed", "unavailable", "blocked"}
+SENSITIVE_KEYS = {"api_key", "apikey", "token", "secret", "password", "authorization", "access_token", "refresh_token"}
 SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^\s'\"]{8,}"),
     re.compile(r"(?i)bearer\s+[a-z0-9._-]{12,}"),
+    re.compile(r"(?i)sk-[a-z0-9_-]{12,}"),
 ]
 
 
-def _secret_text(value: Any) -> str:
-    if isinstance(value, dict):
-        return " ".join(f"{key} {value}" for key, value in value.items())
-    if isinstance(value, list):
-        return " ".join(_secret_text(item) for item in value)
-    return str(value)
+def _looks_secret(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if len(stripped) < 8:
+        return False
+    return bool(re.search(r"[A-Za-z]", stripped) and re.search(r"[0-9]|[_./+=-]", stripped)) or bool(SECRET_PATTERNS[0].search(stripped)) or bool(SECRET_PATTERNS[1].search(stripped))
 
 
 def contains_secret_like_value(data: Any) -> bool:
-    text = _secret_text(data)
-    return any(pattern.search(text) for pattern in SECRET_PATTERNS)
+    if isinstance(data, dict):
+        for key, value in data.items():
+            normalized = str(key).lower().replace("-", "_")
+            if normalized in SENSITIVE_KEYS and _looks_secret(value):
+                return True
+            if contains_secret_like_value(value):
+                return True
+        return False
+    if isinstance(data, list):
+        return any(contains_secret_like_value(item) for item in data)
+    return bool(isinstance(data, str) and any(pattern.search(data) for pattern in SECRET_PATTERNS))
 
 
 def validate_artifact(path: Path, expected_type: str | None = None, run_id: str | None = None) -> list[str]:

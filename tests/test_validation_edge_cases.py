@@ -17,6 +17,16 @@ def test_rejects_secret_like_value(tmp_path: Path):
     assert contains_secret_like_value({"token": "abcdefghijklmnop"})
 
 
+def test_accepts_safe_metadata(tmp_path: Path):
+    path = tmp_path / "proposal.json"
+    path.write_text(json.dumps({"schema_version": 1, "type": "proposal", "run_id": "run", "status": "completed", "token_count": 12, "description": "Review the token budget."}))
+    assert validate_artifact(path, "proposal", "run") == []
+
+
+def test_rejects_nested_secret_like_value():
+    assert contains_secret_like_value({"provider": {"authorization": "Bearer abcdefghijklmnop"}})
+
+
 def test_rejects_approved_consensus_with_conflicts(tmp_path: Path):
     run = tmp_path / "run"
     (run / "proposals").mkdir(parents=True)
