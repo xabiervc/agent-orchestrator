@@ -6,6 +6,9 @@ import json
 
 from .config import load_project_config, write_project_config
 from .consensus import calculate_consensus
+from .models import DEFAULT_ROUTES
+from .policy import RoutingPolicy
+from .providers import detect_provider
 from .runs import create_run, latest_run
 from .validation import validate_run
 
@@ -17,6 +20,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--profile", default="generic")
     start = sub.add_parser("start")
     start.add_argument("--task", required=True)
+    route = sub.add_parser("route")
+    route.add_argument("--risk", choices=["mechanical", "low", "normal", "high", "critical"], default="normal")
+    route.add_argument("--role", choices=["exploration", "planning", "review", "implementation"], default="planning")
+    provider = sub.add_parser("provider")
+    provider.add_argument("name", choices=["claude-code", "codex", "copilot"])
     for name in ("status", "consensus", "validate"):
         sub.add_parser(name)
     return parser
@@ -27,8 +35,17 @@ def main(argv: list[str] | None = None) -> int:
     root = Path.cwd()
     if args.command == "init":
         config = {"schema_version": 1, "project": {"name": root.name, "kind": "software"}, "profiles": [args.profile], "commands": {}, "context": {"required": []}, "risks": {}}
-        path = write_project_config(root, config)
-        print(path)
+        print(write_project_config(root, config))
+        return 0
+    if args.command == "route":
+        policy = RoutingPolicy()
+        model = policy.model_for(args.risk)
+        role = args.role
+        route = DEFAULT_ROUTES["complex_implementation"] if role == "implementation" and args.risk in {"high", "critical"} else DEFAULT_ROUTES.get(role, DEFAULT_ROUTES["planning"])
+        print(json.dumps({"role": role, "risk": args.risk, "provider": route.provider, "model": model, "effort": route.effort}, indent=2))
+        return 0
+    if args.command == "provider":
+        print(json.dumps(detect_provider(args.name).__dict__, indent=2))
         return 0
     config = load_project_config(root)
     if args.command == "start":
@@ -39,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No runs found.")
         return 1
     if args.command == "status":
-        print(json.dumps(json.loads((run / "task.json").read_text()), indent=2))
+        print((run / "task.json").read_text(encoding="utf-8"))
     elif args.command == "consensus":
         print(json.dumps(calculate_consensus(run), indent=2))
     elif args.command == "validate":
