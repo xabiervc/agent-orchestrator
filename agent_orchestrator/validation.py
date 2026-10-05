@@ -19,10 +19,7 @@ SECRET_PATTERNS = [
 def _looks_secret(value: Any) -> bool:
     if not isinstance(value, str):
         return False
-    stripped = value.strip()
-    if len(stripped) < 8:
-        return False
-    return bool(re.search(r"[A-Za-z]", stripped) and re.search(r"[0-9]|[_./+=-]", stripped)) or bool(SECRET_PATTERNS[0].search(stripped)) or bool(SECRET_PATTERNS[1].search(stripped))
+    return bool(value.strip())
 
 
 def contains_secret_like_value(data: Any) -> bool:

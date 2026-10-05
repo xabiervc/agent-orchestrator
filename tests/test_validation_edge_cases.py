@@ -14,7 +14,7 @@ def test_rejects_secret_like_value(tmp_path: Path):
     path = tmp_path / "proposal.json"
     path.write_text(json.dumps({"schema_version": 1, "type": "proposal", "run_id": "run", "status": "completed", "api_key": "abcdefghijklmnop"}))
     assert validate_artifact(path, "proposal", "run")
-    assert contains_secret_like_value({"token": "abcdefghijklmnop"})
+    assert contains_secret_like_value({"api_key": "abcdefghijklmnop"})
 
 
 def test_accepts_safe_metadata(tmp_path: Path):
