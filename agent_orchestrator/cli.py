@@ -9,10 +9,9 @@ from .consensus import calculate_consensus
 from .evidence import create_evidence_manifest, validate_evidence_manifest
 from .handoff import create_handoff
 from .lifecycle import RunState
-from .models import DEFAULT_ROUTES
-from .policy import RoutingPolicy
 from .quality import evaluate_quality
 from .providers import detect_provider
+from .routing import route_for, route_dict
 from .runs import create_run, latest_run
 from .validation import validate_run
 
@@ -91,9 +90,8 @@ def main(argv: list[str] | None = None) -> int:
         print(write_project_config(root, config))
         return 0
     if args.command == "route":
-        policy = RoutingPolicy()
-        route = DEFAULT_ROUTES["complex_implementation"] if args.role == "implementation" and args.risk in {"high", "critical"} else DEFAULT_ROUTES.get(args.role, DEFAULT_ROUTES["planning"])
-        print(json.dumps({"role": args.role, "risk": args.risk, "provider": route.provider, "model": policy.model_for(args.risk), "effort": route.effort}, indent=2))
+        selected = route_for(args.role, risk=args.risk)
+        print(json.dumps({"role": args.role, "risk": args.risk, **route_dict(selected)}, indent=2))
         return 0
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))

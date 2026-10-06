@@ -1,74 +1,71 @@
 # Agent Orchestrator
 
-Provider-agnostic orchestration core for coding agents across games, apps, web, mobile, and desktop projects.
+Provider-agnostic orchestration core for coding agents and game-production workflows.
 
-The project keeps the reusable protocol in one repository and stores project-specific configuration and run artifacts in each consumer repository.
+## Installation
 
-## Design
-
-```text
-project repository
-  .agent/project.yaml
-  .agent/runs/<run-id>/
-          |
-          v
-agent-orchestrator
-  routing -> providers -> artifacts -> consensus -> validation
-```
-
-The core does not store credentials, install provider CLIs, modify repositories, or execute agents automatically. It creates explicit artifacts and safe command plans for an operator or an external runner.
-
-## Requirements
-
-- Python 3.11+
-- Git
-
-## Install
-
-```powershell
+```bash
 python -m pip install -e .
 ```
 
-## CLI
+## Project setup
 
-```powershell
+Initialize a project with a JSON configuration:
+
+```bash
 agent init --profile generic
-agent start --task "Describe the task"
-agent status
-agent consensus
-agent validate
 ```
 
-Use `agent --help` for all options.
+This creates `project.json`. Start a run with:
 
-## Profiles
+```bash
+agent start --task "Describe the implementation task"
+```
 
-Profiles describe project capabilities, commands, and risk areas. The initial profiles are:
+## CLI lifecycle
 
-- `generic`
-- `godot`
-- `unreal`
-- `unity`
-- `mobile`
-- `web`
-- `desktop`
-- `backend`
+```text
+agent init       Create project.json
+agent start      Create a run
+agent route      Select a provider/model for role and risk
+agent provider   Inspect a provider adapter
+agent transition Advance the current run state
+agent handoff    Write a provider handoff contract
+agent quality    Evaluate declared quality gates
+agent evidence   Write and validate evidence entries
+agent status     Show the current task
+agent consensus  Calculate consensus from run artifacts
+agent validate   Validate the run artifacts
+```
 
-A project may combine profiles in `.agent/project.yaml`.
+Example routing query:
 
-## Provider policy
+```bash
+agent route --role implementation --risk high
+```
 
-The routing defaults are intentionally conservative:
+Example quality evaluation:
 
-- `haiku`: exploration and mechanical checks;
-- `sonnet`: normal planning, implementation, and review;
-- `opus`: architecture, persistence, migrations, and hard debugging;
-- `fable`: manual opt-in only.
+```bash
+agent quality --result tests=true --result validation=true --result evidence=true
+```
 
-Provider adapters produce command plans. They never embed credentials or assume that a provider is available.
+In v0.1, quality results are declared inputs. They are not yet connected automatically to project commands or persisted execution evidence.
 
-## Repository contract
+## Run artifacts
 
-The consumer repository remains the authority for project design and implementation. Every run is isolated under `.agent/runs/<run-id>/`. Implementers must not edit unless `consensus.json` contains `decision: approve`.
+Runs are stored under `.agent/runs/<run-id>/`. The lifecycle records task, proposals, reviews, prompts, evidence, consensus, and run state as JSON artifacts.
 
-See `docs/ARCHITECTURE.md` and `docs/PROJECT_INTEGRATION.md`.
+Consensus requires valid artifacts and explicit verdicts. Valid verdicts are `approve`, `reject`, and `changes_requested`. Missing verdicts remain `pending`; they are never treated as implicit approvals. The legacy `decision` field remains available as `pending`, `approve`, or `reject` for compatibility.
+
+## Optional integrations
+
+The repository includes optional, offline-tested adapters and contracts for providers, Godot, Unreal, Blender, 3D assets, and game production. These integrations are not required by the core package and may require separate tools, credentials, APIs, or project-specific validation.
+
+## Development
+
+```bash
+pytest -q
+```
+
+The graph-based execution engine, command-backed quality gates, and provider authentication checks remain separate follow-up work.
