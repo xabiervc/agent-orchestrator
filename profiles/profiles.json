@@ -6,5 +6,6 @@
   "mobile": {"kind": "mobile", "capabilities": ["source_editing", "automated_tests", "packaging", "device_evidence"], "risk_areas": ["signing", "permissions", "platform_configuration"]},
   "web": {"kind": "web", "capabilities": ["source_editing", "automated_tests", "browser_evidence", "packaging"], "risk_areas": ["build", "routing", "security"]},
   "desktop": {"kind": "desktop", "capabilities": ["source_editing", "automated_tests", "packaging", "runtime_launch"], "risk_areas": ["packaging", "platform_configuration"]},
-  "backend": {"kind": "backend", "capabilities": ["source_editing", "automated_tests", "packaging"], "risk_areas": ["data_migrations", "security", "deployment"]}
+  "backend": {"kind": "backend", "capabilities": ["source_editing", "automated_tests", "packaging"], "risk_areas": ["data_migrations", "security", "deployment"]},
+  "asset-pipeline": {"kind": "content", "capabilities": ["asset_search", "asset_download", "license_tracking", "provenance_tracking"], "risk_areas": ["license", "archive", "destination", "provenance"]}
 }
