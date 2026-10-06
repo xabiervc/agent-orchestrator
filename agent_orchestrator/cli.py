@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .artifacts import append_evidence_entries, latest_run, write_project_config
-from .lifecycle import advance_task, start_task
+from .lifecycle import advance_task, start_task, transition_task
 from .providers import detect_provider
 from .quality import evaluate_quality, execute_quality_command
 from .routing import route_dict, route_for
@@ -46,6 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     advance_parser = subparsers.add_parser("advance")
     advance_parser.add_argument("--run", required=True)
     advance_parser.add_argument("--state", default="advanced")
+    transition_parser = subparsers.add_parser("transition")
+    transition_parser.add_argument("--run")
+    transition_parser.add_argument("--to", required=True)
     route_parser = subparsers.add_parser("route")
     route_parser.add_argument("--role", required=True)
     route_parser.add_argument("--risk", default="low")
@@ -70,8 +73,14 @@ def main(argv: list[str] | None = None) -> int:
         print(run)
         return 0
     if args.command == "advance":
-        run = Path(args.run)
-        payload = advance_task(run, args.state)
+        payload = advance_task(Path(args.run), args.state)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+    if args.command == "transition":
+        run = Path(args.run) if args.run else latest_run(root)
+        if run is None:
+            raise ValueError("No run available for transition.")
+        payload = transition_task(run, args.to)
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
     if args.command == "route":
