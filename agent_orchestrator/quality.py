@@ -39,8 +39,19 @@ class QualityReport:
         }
 
 
-def evaluate_quality(results: Mapping[str, bool]) -> QualityReport:
-    return QualityReport(tuple(QualityGate(name, passed) for name, passed in results.items()))
+@dataclass(frozen=True)
+class QualityResult:
+    passed: bool
+    failures: tuple[str, ...] = ()
+
+    @property
+    def failed(self) -> bool:
+        return not self.passed
+
+
+def evaluate_quality(results: Mapping[str, bool]) -> QualityResult:
+    failures = tuple(name for name, passed in results.items() if not passed)
+    return QualityResult(not failures, failures)
 
 
 def run_quality_command(
