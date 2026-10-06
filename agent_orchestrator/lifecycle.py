@@ -10,6 +10,10 @@ from .runs import advance_run, create_run, load_run
 class _StateValue:
     value: str
 
+    @property
+    def state(self) -> str:
+        return self.value
+
     def transition(self, target: str) -> "_StateValue":
         allowed = {
             "created": {"planning", "failed"},
@@ -53,6 +57,10 @@ class RunState:
         if value not in values:
             raise ValueError(f"Unknown run state: {value}")
         self.value = value
+
+    @property
+    def state(self) -> str:
+        return self.value
 
     def transition(self, target: str) -> _StateValue:
         return _StateValue(self.value).transition(target)
