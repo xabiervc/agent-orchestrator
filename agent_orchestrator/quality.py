@@ -43,15 +43,32 @@ class QualityReport:
 class QualityResult:
     passed: bool
     failures: tuple[str, ...] = ()
+    gates: tuple[QualityGate, ...] = ()
 
     @property
     def failed(self) -> bool:
         return not self.passed
 
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "failures": list(self.failures),
+            "gates": [
+                {
+                    "name": gate.name,
+                    "passed": gate.passed,
+                    "required": gate.required,
+                    "details": gate.details,
+                }
+                for gate in self.gates
+            ],
+        }
+
 
 def evaluate_quality(results: Mapping[str, bool]) -> QualityResult:
     failures = tuple(name for name, passed in results.items() if not passed)
-    return QualityResult(not failures, failures)
+    gates = tuple(QualityGate(name, passed) for name, passed in results.items())
+    return QualityResult(not failures, failures, gates)
 
 
 def run_quality_command(
