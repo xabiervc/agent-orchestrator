@@ -16,6 +16,13 @@ def read_json(path: Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def list_artifacts(root: Path) -> list[Path]:
+    base = Path(root)
+    if not base.exists():
+        return []
+    return sorted((path for path in base.rglob("*") if path.is_file()), key=lambda path: path.as_posix())
+
+
 def write_project_config(root: Path, config: Mapping[str, Any]) -> Path:
     return write_json(root / ".agent" / "project.json", dict(config))
 
