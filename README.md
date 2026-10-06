@@ -47,19 +47,16 @@ agent route --role implementation --risk high
 Example quality evaluation:
 
 ```bash
-agent quality \
-  --result tests=true \
-  --result validation=true \
-  --result evidence=true
+agent quality --result tests=true --result validation=true --result evidence=true
 ```
 
-In v0.1, quality results are declared inputs. They are not yet connected automatically to project commands or persisted execution evidence. That is planned for a later release.
+In v0.1, quality results are declared inputs. They are not yet connected automatically to project commands or persisted execution evidence.
 
 ## Run artifacts
 
 Runs are stored under `.agent/runs/<run-id>/`. The lifecycle records task, proposals, reviews, prompts, evidence, consensus, and run state as JSON artifacts.
 
-Consensus accepts only valid, completed artifacts with an explicit approval verdict. Missing or non-approval verdicts are not treated as approvals.
+Consensus requires valid artifacts and explicit verdicts. Valid verdicts are `approve`, `reject`, and `changes_requested`. Missing verdicts remain `pending`; they are never treated as implicit approvals. The legacy `decision` field remains available as `pending`, `approve`, or `reject` for compatibility.
 
 ## Optional integrations
 
