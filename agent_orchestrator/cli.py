@@ -4,12 +4,13 @@ import argparse
 from pathlib import Path
 import json
 
+from .commands import build_project_command
 from .config import load_project_config, write_project_config
 from .consensus import calculate_consensus
-from .evidence import create_evidence_manifest, validate_evidence_manifest
+from .evidence import append_evidence_entries, create_evidence_manifest, validate_evidence_manifest
 from .handoff import create_handoff
 from .lifecycle import RunState
-from .quality import evaluate_quality
+from .quality import evaluate_quality, execute_quality_command
 from .providers import detect_provider
 from .routing import route_for, route_dict
 from .runs import create_run, latest_run
@@ -45,6 +46,8 @@ def build_parser() -> argparse.ArgumentParser:
     handoff.add_argument("--verify-command", action="append", default=[])
     quality = sub.add_parser("quality")
     quality.add_argument("--result", action="append", default=[], help="gate=true or gate=false")
+    quality.add_argument("--command", action="append", default=[], help="gate=command")
+    quality.add_argument("--timeout", type=int, default=300)
     evidence = sub.add_parser("evidence")
     evidence.add_argument("--entry", action="append", default=[], help="key=value,key=value")
     for name in ("status", "consensus", "validate"):
@@ -82,6 +85,16 @@ def _quality_results(values: list[str]) -> dict[str, bool]:
     return results
 
 
+def _quality_commands(values: list[str], timeout: int) -> list[dict[str, object]]:
+    results = []
+    for item in values:
+        name, separator, command = item.partition("=")
+        if not separator or not name.strip() or not command.strip():
+            raise SystemExit("Quality commands must use gate=command.")
+        results.append(execute_quality_command(build_project_command(name.strip(), command.strip(), timeout_seconds=timeout)))
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = Path.cwd()
@@ -97,8 +110,18 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
         return 0
     if args.command == "quality":
-        result = evaluate_quality(_quality_results(args.result))
-        print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures}, indent=2))
+        results = _quality_results(args.result)
+        command_results = _quality_commands(args.command, args.timeout) if args.command else []
+        for item in command_results:
+            results[item["gate"]] = bool(item["passed"])
+        if command_results:
+            results["_evidence"] = command_results
+        result = evaluate_quality(results)
+        if command_results:
+            run = latest_run(root)
+            if run is not None:
+                append_evidence_entries(run, command_results)
+        print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures, "evidence": result.evidence}, indent=2))
         return 0 if result.passed else 1
     if args.command == "start":
         config = load_project_config(root)

@@ -13,6 +13,19 @@ def create_evidence_manifest(run: Path, entries: list[dict[str, Any]]) -> dict[s
     return manifest
 
 
+def append_evidence_entries(run: Path, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    manifest_path = run / "evidence" / "manifest.json"
+    if manifest_path.exists():
+        manifest = read_json(manifest_path)
+        if not isinstance(manifest.get("entries"), list):
+            manifest["entries"] = []
+    else:
+        manifest = {"schema_version": 1, "type": "evidence_manifest", "run_id": run.name, "created_at": datetime.now(timezone.utc).isoformat(), "entries": []}
+    manifest["entries"].extend(entries)
+    write_json(manifest_path, manifest)
+    return manifest
+
+
 def load_evidence_manifest(run: Path) -> dict[str, Any]:
     return read_json(run / "evidence" / "manifest.json")
 
