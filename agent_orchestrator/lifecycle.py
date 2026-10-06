@@ -1,26 +1,16 @@
 from __future__ import annotations
 
-from enum import Enum
+from dataclasses import dataclass
 from pathlib import Path
 
 from .runs import advance_run, create_run, load_run
 
 
-class RunState(str, Enum):
-    CREATED = "created"
-    PLANNING = "planning"
-    REVIEWING = "reviewing"
-    CONSENSUS = "consensus"
-    ADVANCED = "advanced"
-    COMPLETED = "completed"
-    FAILED = "failed"
+@dataclass(frozen=True)
+class _StateValue:
+    value: str
 
-    def __new__(cls, value: str = "created"):
-        obj = str.__new__(cls, value)
-        obj._value_ = value
-        return obj
-
-    def transition(self, target: str) -> "RunState":
+    def transition(self, target: str) -> "_StateValue":
         allowed = {
             "created": {"planning", "failed"},
             "planning": {"reviewing", "failed"},
@@ -30,11 +20,39 @@ class RunState(str, Enum):
             "completed": set(),
             "failed": set(),
         }
-        if target not in {member.value for member in RunState}:
+        if target not in allowed:
             raise ValueError(f"Unknown run state: {target}")
-        if target != self.value and target not in allowed.get(self.value, set()):
+        if target != self.value and target not in allowed[self.value]:
             raise ValueError(f"Invalid transition: {self.value} -> {target}")
+        return _StateValue(target)
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class RunState:
+    CREATED = _StateValue("created")
+    PLANNING = _StateValue("planning")
+    REVIEWING = _StateValue("reviewing")
+    CONSENSUS = _StateValue("consensus")
+    ADVANCED = _StateValue("advanced")
+    COMPLETED = _StateValue("completed")
+    FAILED = _StateValue("failed")
+
+    def __init__(self, value: str = "created") -> None:
+        if value not in {state.value for state in (self.CREATED, self.PLANNING, self.REVIEWING, self.CONSENSUS, self.ADVANCED, self.COMPLETED, self.FAILED)}:
+            raise ValueError(f"Unknown run state: {value}")
+        self.value = value
+
+    def transition(self, target: str) -> "RunState":
+        _StateValue(self.value).transition(target)
         return RunState(target)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, RunState) and self.value == other.value
+
+    def __repr__(self) -> str:
+        return f"RunState({self.value!r})"
 
 
 def start_task(root: Path, task: str) -> Path:
@@ -47,8 +65,7 @@ def advance_task(run: Path, state: str = "advanced") -> dict:
 
 def transition_task(run: Path, state: str) -> dict:
     payload = load_run(run)
-    current = RunState(payload.get("state", "created"))
-    current.transition(state)
+    RunState(payload.get("state", "created")).transition(state)
     return advance_run(run, state)
 
 
