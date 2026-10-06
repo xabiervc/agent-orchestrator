@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 
 def write_json(path: Path, payload: Any) -> Path:
@@ -41,9 +42,9 @@ def append_evidence_entries(run: Path, entries: list[Mapping[str, Any]]) -> Path
     if isinstance(payload, list):
         payload = {"entries": payload}
     if not isinstance(payload, dict):
-        raise ValueError("Evidence manifest must be a JSON object or list.")
+        raise TypeError("Evidence manifest must be a JSON object or list.")
     existing = payload.setdefault("entries", [])
     if not isinstance(existing, list):
-        raise ValueError("Evidence manifest entries must be a list.")
+        raise TypeError("Evidence manifest entries must be a list.")
     existing.extend(dict(entry) for entry in entries)
     return write_json(manifest, payload)
