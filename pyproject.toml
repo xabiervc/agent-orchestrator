@@ -4,14 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-orchestrator"
-version = "0.1.0"
-description = "Provider-agnostic orchestration core for coding agents"
-readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
+version = "0.1.1"
+description = "Deterministic evidence-oriented orchestration core"
+requires-python = ">=3.10"
 
 [project.scripts]
 agent = "agent_orchestrator.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["agent_orchestrator*", "plugins*", "game_production*"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["agent_orchestrator"]

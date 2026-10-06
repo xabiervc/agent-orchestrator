@@ -1,71 +1,55 @@
-# Agent Orchestrator
+# agent-orchestrator
 
-Provider-agnostic orchestration core for coding agents and game-production workflows.
+A deterministic, evidence-oriented orchestration core for software and game-production workflows.
 
-## Installation
+## Install
 
 ```bash
 python -m pip install -e .
 ```
 
-## Project setup
+For development:
 
-Initialize a project with a JSON configuration:
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+## Quickstart
 
 ```bash
 agent init --profile generic
+agent start --task "Release smoke test"
+agent transition --to planning
+agent transition --to reviewing
+agent transition --to consensus
+agent quality --command 'tests=python -c "print(1)"'
 ```
 
-This creates `project.json`. Start a run with:
+The CLI returns exit code `0` when required quality gates pass and `1` otherwise.
 
-```bash
-agent start --task "Describe the implementation task"
-```
+## Lifecycle
 
-## CLI lifecycle
+Runs are stored under `.agent/runs/<run-id>/`:
 
-```text
-agent init       Create project.json
-agent start      Create a run
-agent route      Select a provider/model for role and risk
-agent provider   Inspect a provider adapter
-agent transition Advance the current run state
-agent handoff    Write a provider handoff contract
-agent quality    Evaluate declared quality gates
-agent evidence   Write and validate evidence entries
-agent status     Show the current task
-agent consensus  Calculate consensus from run artifacts
-agent validate   Validate the run artifacts
-```
+- `run.json`: compatibility manifest with task, state and history.
+- `state.json`: current persisted state.
+- `proposals/`: planner proposals.
+- `reviews/`: reviewer outputs.
+- `evidence/manifest.json`: command evidence and hashes.
 
-Example routing query:
+Valid lifecycle states are `created`, `planning`, `reviewing`, `consensus`, `advanced`, `completed` and `failed`. Invalid transitions are rejected.
 
-```bash
-agent route --role implementation --risk high
-```
+## Quality gates
 
-Example quality evaluation:
-
-```bash
-agent quality --result tests=true --result validation=true --result evidence=true
-```
-
-In v0.1, quality results are declared inputs. They are not yet connected automatically to project commands or persisted execution evidence.
-
-## Run artifacts
-
-Runs are stored under `.agent/runs/<run-id>/`. The lifecycle records task, proposals, reviews, prompts, evidence, consensus, and run state as JSON artifacts.
-
-Consensus requires valid artifacts and explicit verdicts. Valid verdicts are `approve`, `reject`, and `changes_requested`. Missing verdicts remain `pending`; they are never treated as implicit approvals. The legacy `decision` field remains available as `pending`, `approve`, or `reject` for compatibility.
-
-## Optional integrations
-
-The repository includes optional, offline-tested adapters and contracts for providers, Godot, Unreal, Blender, 3D assets, and game production. These integrations are not required by the core package and may require separate tools, credentials, APIs, or project-specific validation.
+Use `--result NAME=true|false` for precomputed results or `--command NAME=COMMAND` for safe execution. Commands are tokenized and executed without a shell, with timeouts and project-root directory validation.
 
 ## Development
 
 ```bash
 pytest -q
+ruff check .
+mypy agent_orchestrator
+pytest --cov=agent_orchestrator --cov-report=term-missing
 ```
 
-The graph-based execution engine, command-backed quality gates, and provider authentication checks remain separate follow-up work.
+See [the quickstart](examples/quickstart/README.md) and [release notes](RELEASE_NOTES_v0.1.1.md).
