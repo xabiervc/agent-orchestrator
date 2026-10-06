@@ -2,27 +2,28 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-import uuid
+from uuid import uuid4
 
-from .artifacts import write_json
-from .config import ProjectConfig
-from .schemas import consensus_artifact, task_artifact
+from .artifacts import read_json, write_json
 
 
-def create_run(root: Path, config: ProjectConfig, task: str) -> Path:
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+def create_run(root: Path, task: str) -> Path:
+    if not task.strip():
+        raise ValueError("Task is required.")
+    run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
     run = root / ".agent" / "runs" / run_id
-    for child in ("proposals", "reviews", "prompts", "evidence"):
-        (run / child).mkdir(parents=True, exist_ok=True)
-    write_json(run / "task.json", task_artifact(run_id, task, config.raw))
-    write_json(run / "consensus.json", consensus_artifact(run_id))
-    write_json(run / "run.json", {"schema_version": 1, "type": "run", "run_id": run_id, "state": "created", "created_at": datetime.now(timezone.utc).isoformat()})
+    write_json(run / "state.json", {"run_id": run_id, "task": task.strip(), "state": "created", "history": ["created"]})
+    write_json(run / "evidence" / "manifest.json", {"entries": []})
     return run
 
 
-def latest_run(root: Path) -> Path | None:
-    runs = root / ".agent" / "runs"
-    if not runs.exists():
-        return None
-    candidates = sorted((path for path in runs.iterdir() if path.is_dir()), key=lambda path: path.name, reverse=True)
-    return candidates[0] if candidates else None
+def load_run(run: Path) -> dict:
+    return read_json(run / "state.json")
+
+
+def advance_run(run: Path, state: str = "advanced") -> dict:
+    payload = load_run(run)
+    payload["state"] = state
+    payload.setdefault("history", []).append(state)
+    write_json(run / "state.json", payload)
+    return payload

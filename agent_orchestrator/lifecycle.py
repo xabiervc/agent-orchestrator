@@ -1,29 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from pathlib import Path
 
-STATES = ("created", "planning", "reviewing", "consensus", "approved", "implementing", "verifying", "completed", "blocked", "failed")
-ALLOWED = {
-    "created": {"planning", "blocked", "failed"},
-    "planning": {"reviewing", "blocked", "failed"},
-    "reviewing": {"consensus", "blocked", "failed"},
-    "consensus": {"approved", "blocked", "failed"},
-    "approved": {"implementing", "blocked", "failed"},
-    "implementing": {"verifying", "blocked", "failed"},
-    "verifying": {"completed", "blocked", "failed"},
-    "completed": set(),
-    "blocked": {"planning", "failed"},
-    "failed": {"planning"},
-}
+from .runs import advance_run, create_run, load_run
 
 
-@dataclass(frozen=True)
-class RunState:
-    state: str = "created"
+def start_task(root: Path, task: str) -> Path:
+    return create_run(root, task)
 
-    def transition(self, target: str) -> "RunState":
-        if target not in STATES:
-            raise ValueError(f"Unknown run state: {target}")
-        if target not in ALLOWED[self.state]:
-            raise ValueError(f"Invalid transition: {self.state} -> {target}")
-        return RunState(target)
+
+def advance_task(run: Path, state: str = "advanced") -> dict:
+    return advance_run(run, state)
+
+
+def current_state(run: Path) -> dict:
+    return load_run(run)

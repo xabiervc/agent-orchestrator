@@ -36,12 +36,8 @@ def latest_run(root: Path) -> Path | None:
 
 
 def append_evidence_entries(run: Path, entries: list[Mapping[str, Any]]) -> Path:
-    """Append evidence entries to a run manifest without changing its shape."""
     manifest = run / "evidence" / "manifest.json"
-    if manifest.exists():
-        payload = read_json(manifest)
-    else:
-        payload = {"entries": []}
+    payload = read_json(manifest) if manifest.exists() else {"entries": []}
     if isinstance(payload, list):
         payload = {"entries": payload}
     if not isinstance(payload, dict):
