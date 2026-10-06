@@ -14,4 +14,4 @@ dependencies = []
 agent = "agent_orchestrator.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["agent_orchestrator*"]
+include = ["agent_orchestrator*", "plugins*"]
