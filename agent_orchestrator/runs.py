@@ -7,25 +7,34 @@ from uuid import uuid4
 from .artifacts import read_json, write_json
 
 
+def _write_run_payload(run: Path, payload: dict) -> None:
+    write_json(run / "run.json", payload)
+    write_json(run / "state.json", payload)
+
+
 def create_run(root: Path, task: str) -> Path:
     if not task.strip():
         raise ValueError("Task is required.")
     run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
     run = root / ".agent" / "runs" / run_id
-    write_json(run / "state.json", {"run_id": run_id, "task": task.strip(), "state": "created", "history": ["created"]})
+    payload = {"run_id": run_id, "task": task.strip(), "state": "created", "history": ["created"]}
+    _write_run_payload(run, payload)
     write_json(run / "evidence" / "manifest.json", {"entries": []})
     return run
 
 
 def load_run(run: Path) -> dict:
-    return read_json(run / "state.json")
+    state_path = run / "state.json"
+    if state_path.exists():
+        return read_json(state_path)
+    return read_json(run / "run.json")
 
 
 def advance_run(run: Path, state: str = "advanced") -> dict:
     payload = load_run(run)
     payload["state"] = state
     payload.setdefault("history", []).append(state)
-    write_json(run / "state.json", payload)
+    _write_run_payload(run, payload)
     return payload
 
 
