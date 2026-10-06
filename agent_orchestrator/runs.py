@@ -16,12 +16,5 @@ def create_run(root: Path, config: ProjectConfig, task: str) -> Path:
         (run / child).mkdir(parents=True, exist_ok=True)
     write_json(run / "task.json", task_artifact(run_id, task, config.raw))
     write_json(run / "consensus.json", consensus_artifact(run_id))
+    write_json(run / "run.json", {"schema_version": 1, "type": "run", "run_id": run_id, "state": "created", "created_at": datetime.now(timezone.utc).isoformat()})
     return run
-
-
-def latest_run(root: Path) -> Path | None:
-    runs = root / ".agent" / "runs"
-    if not runs.exists():
-        return None
-    candidates = sorted((path for path in runs.iterdir() if path.is_dir()), key=lambda path: path.name, reverse=True)
-    return candidates[0] if candidates else None
