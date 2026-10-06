@@ -4,13 +4,17 @@ from pathlib import Path
 from typing import Any
 from datetime import datetime, timezone
 
-from .artifacts import write_json
+from .artifacts import read_json, write_json
 
 
 def create_evidence_manifest(run: Path, entries: list[dict[str, Any]]) -> dict[str, Any]:
     manifest = {"schema_version": 1, "type": "evidence_manifest", "run_id": run.name, "created_at": datetime.now(timezone.utc).isoformat(), "entries": entries}
     write_json(run / "evidence" / "manifest.json", manifest)
     return manifest
+
+
+def load_evidence_manifest(run: Path) -> dict[str, Any]:
+    return read_json(run / "evidence" / "manifest.json")
 
 
 def validate_evidence_manifest(manifest: dict[str, Any], run_id: str) -> list[str]:

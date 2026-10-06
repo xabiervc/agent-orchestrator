@@ -6,6 +6,6 @@ Runs move through explicit states:
 created -> planning -> reviewing -> consensus -> approved -> implementing -> verifying -> completed
 ```
 
-A run may become `blocked` or `failed`. Implementers must not edit during `created`, `planning`, `reviewing`, `consensus`, `blocked`, or `failed` states.
+Use `agent transition --to <state>` to persist a valid transition. A run may become `blocked` or `failed`, and can return to planning according to the state machine.
 
-Transitions are deterministic and invalid jumps are rejected.
+A handoff requires approved consensus and writes a scope-locked `handoff.json`.

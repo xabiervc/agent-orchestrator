@@ -6,11 +6,23 @@ import json
 
 from .config import load_project_config, write_project_config
 from .consensus import calculate_consensus
+from .evidence import create_evidence_manifest, validate_evidence_manifest
+from .handoff import create_handoff
+from .lifecycle import RunState
 from .models import DEFAULT_ROUTES
 from .policy import RoutingPolicy
+from .quality import evaluate_quality
 from .providers import detect_provider
 from .runs import create_run, latest_run
 from .validation import validate_run
+
+
+def _parse_bool(value: str) -> bool:
+    if value.lower() in {"true", "1", "yes", "pass", "passed"}:
+        return True
+    if value.lower() in {"false", "0", "no", "fail", "failed"}:
+        return False
+    raise argparse.ArgumentTypeError("Expected true or false.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,9 +37,40 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--role", choices=["exploration", "planning", "review", "implementation"], default="planning")
     provider = sub.add_parser("provider")
     provider.add_argument("name", choices=["claude-code", "codex", "copilot"])
+    transition = sub.add_parser("transition")
+    transition.add_argument("--to", dest="target", choices=["planning", "reviewing", "consensus", "approved", "implementing", "verifying", "completed", "blocked", "failed"], required=True)
+    handoff = sub.add_parser("handoff")
+    handoff.add_argument("--provider", required=True)
+    handoff.add_argument("--model", required=True)
+    handoff.add_argument("--allowed-file", action="append", default=[])
+    handoff.add_argument("--verify-command", action="append", default=[])
+    quality = sub.add_parser("quality")
+    quality.add_argument("--result", action="append", default=[], help="gate=true or gate=false")
+    evidence = sub.add_parser("evidence")
+    evidence.add_argument("--entry", action="append", default=[], help="key=value,key=value")
     for name in ("status", "consensus", "validate"):
         sub.add_parser(name)
     return parser
+
+
+def _latest_or_error(root: Path) -> Path:
+    run = latest_run(root)
+    if run is None:
+        raise SystemExit("No runs found.")
+    return run
+
+
+def _parse_entries(values: list[str]) -> list[dict[str, str]]:
+    entries = []
+    for value in values:
+        entry = {}
+        for pair in value.split(","):
+            key, separator, item = pair.partition("=")
+            if not separator or not key.strip() or not item.strip():
+                raise ValueError("Evidence entries must use key=value pairs.")
+            entry[key.strip()] = item.strip()
+        entries.append(entry)
+    return entries
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,22 +82,43 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "route":
         policy = RoutingPolicy()
-        model = policy.model_for(args.risk)
-        role = args.role
-        route = DEFAULT_ROUTES["complex_implementation"] if role == "implementation" and args.risk in {"high", "critical"} else DEFAULT_ROUTES.get(role, DEFAULT_ROUTES["planning"])
-        print(json.dumps({"role": role, "risk": args.risk, "provider": route.provider, "model": model, "effort": route.effort}, indent=2))
+        route = DEFAULT_ROUTES["complex_implementation"] if args.role == "implementation" and args.risk in {"high", "critical"} else DEFAULT_ROUTES.get(args.role, DEFAULT_ROUTES["planning"])
+        print(json.dumps({"role": args.role, "risk": args.risk, "provider": route.provider, "model": policy.model_for(args.risk), "effort": route.effort}, indent=2))
         return 0
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
         return 0
-    config = load_project_config(root)
     if args.command == "start":
+        config = load_project_config(root)
         print(create_run(root, config, args.task))
         return 0
-    run = latest_run(root)
-    if run is None:
-        print("No runs found.")
-        return 1
+    run = _latest_or_error(root)
+    if args.command == "transition":
+        current = json.loads((run / "run.json").read_text(encoding="utf-8"))["state"]
+        state = RunState(current).transition(args.target)
+        data = json.loads((run / "run.json").read_text(encoding="utf-8"))
+        data["state"] = state.state
+        (run / "run.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(data, indent=2))
+        return 0
+    if args.command == "handoff":
+        print(json.dumps(create_handoff(run, args.provider, args.model, args.allowed_file, args.verify_command), indent=2))
+        return 0
+    if args.command == "quality":
+        results = {}
+        for item in args.result:
+            key, separator, value = item.partition("=")
+            if not separator:
+                raise SystemExit("Quality results must use gate=true or gate=false.")
+            results[key] = _parse_bool(value)
+        result = evaluate_quality(results)
+        print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures}, indent=2))
+        return 0 if result.passed else 1
+    if args.command == "evidence":
+        manifest = create_evidence_manifest(run, _parse_entries(args.entry))
+        errors = validate_evidence_manifest(manifest, run.name)
+        print(json.dumps({"manifest": manifest, "valid": not errors, "errors": errors}, indent=2))
+        return 0 if not errors else 1
     if args.command == "status":
         print((run / "task.json").read_text(encoding="utf-8"))
     elif args.command == "consensus":
