@@ -27,6 +27,7 @@ def create_run(root: Path, config_or_task: Any, task: str | None = None) -> Path
     _write_run_payload(run, payload)
     write_json(run / "evidence" / "manifest.json", {"entries": []})
     (run / "proposals").mkdir(parents=True, exist_ok=True)
+    (run / "reviews").mkdir(parents=True, exist_ok=True)
     return run
 
 

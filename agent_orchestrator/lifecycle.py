@@ -29,6 +29,15 @@ class _StateValue:
     def __str__(self) -> str:
         return self.value
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, _StateValue):
+            return self.value == other.value
+        if isinstance(other, RunState):
+            return self.value == other.value
+        if isinstance(other, str):
+            return self.value == other
+        return False
+
 
 class RunState:
     CREATED = _StateValue("created")
@@ -45,9 +54,8 @@ class RunState:
             raise ValueError(f"Unknown run state: {value}")
         self.value = value
 
-    def transition(self, target: str) -> "RunState":
-        _StateValue(self.value).transition(target)
-        return RunState(target)
+    def transition(self, target: str) -> _StateValue:
+        return _StateValue(self.value).transition(target)
 
     def __str__(self) -> str:
         return self.value
