@@ -32,17 +32,22 @@ def calculate_consensus(run: Path) -> dict:
     artifacts = proposals + reviews
     invalid = [path.name for path in artifacts if not _valid_artifact(path)]
     approvals = [path.name for path in artifacts if _valid_artifact(path) and _artifact_verdict(path) == "approve"]
-    non_approvals = [path.name for path in artifacts if _valid_artifact(path) and _artifact_verdict(path) in {"reject", "changes_requested"}]
+    rejections = [path.name for path in artifacts if _valid_artifact(path) and _artifact_verdict(path) == "reject"]
+    changes_requested = [path.name for path in artifacts if _valid_artifact(path) and _artifact_verdict(path) == "changes_requested"]
     missing_verdict = [path.name for path in artifacts if _valid_artifact(path) and _artifact_verdict(path) is None]
     reasons = []
     if invalid:
         reasons.append("invalid_artifacts")
-    if non_approvals:
-        reasons.append("non_approval_verdicts")
+    if rejections:
+        reasons.append("rejection_verdicts")
+    if changes_requested:
+        reasons.append("changes_requested")
     if missing_verdict:
         reasons.append("missing_or_invalid_verdicts")
-    if invalid or non_approvals or missing_verdict:
-        decision = "reject" if non_approvals else "pending"
+    if rejections:
+        decision = "reject"
+    elif invalid or changes_requested or missing_verdict:
+        decision = "pending"
     elif approvals:
         decision = "approve"
     else:
@@ -53,11 +58,13 @@ def calculate_consensus(run: Path) -> dict:
         "proposal_count": len(proposals),
         "review_count": len(reviews),
         "approval_count": len(approvals),
-        "non_approval_count": len(non_approvals),
+        "rejection_count": len(rejections),
+        "changes_requested_count": len(changes_requested),
         "missing_verdict_count": len(missing_verdict),
         "invalid_artifacts": invalid,
         "approval_artifacts": approvals,
-        "non_approval_artifacts": non_approvals,
+        "rejection_artifacts": rejections,
+        "changes_requested_artifacts": changes_requested,
         "missing_verdict_artifacts": missing_verdict,
         "reasons": reasons,
     }
