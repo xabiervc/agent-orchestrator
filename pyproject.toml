@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 [project.scripts]
 agent = "agent_orchestrator.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["agent_orchestrator*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
