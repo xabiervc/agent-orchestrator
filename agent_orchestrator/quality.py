@@ -1,72 +1,64 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
-import subprocess
-from typing import Any
+from pathlib import Path
+from typing import Any, Mapping
 
-from .commands import ProjectCommandPlan
+from .command_runner import execute_command
+from .commands import build_project_command
 
 
 @dataclass(frozen=True)
-class QualityResult:
+class QualityGate:
+    name: str
     passed: bool
-    gates: dict[str, bool]
-    failures: list[str]
-    evidence: list[dict[str, Any]] | None = None
+    required: bool = True
+    details: str = ""
 
 
-def _sha256(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+@dataclass(frozen=True)
+class QualityReport:
+    gates: tuple[QualityGate, ...]
 
+    @property
+    def passed(self) -> bool:
+        return all(gate.passed for gate in self.gates if gate.required)
 
-def execute_quality_command(plan: ProjectCommandPlan) -> dict[str, Any]:
-    command_hash = _sha256(plan.command)
-    try:
-        completed = subprocess.run(
-            plan.command,
-            shell=True,
-            cwd=plan.working_directory,
-            capture_output=True,
-            text=True,
-            timeout=plan.timeout_seconds,
-            check=False,
-        )
-        stdout = completed.stdout or ""
-        stderr = completed.stderr or ""
+    def as_dict(self) -> dict[str, Any]:
         return {
-            "gate": plan.name,
-            "command_hash": command_hash,
-            "working_directory": str(plan.working_directory),
-            "timeout_seconds": plan.timeout_seconds,
-            "return_code": completed.returncode,
-            "timed_out": False,
-            "passed": completed.returncode == 0,
-            "stdout_hash": _sha256(stdout),
-            "stderr_hash": _sha256(stderr),
-        }
-    except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
-        return {
-            "gate": plan.name,
-            "command_hash": command_hash,
-            "working_directory": str(plan.working_directory),
-            "timeout_seconds": plan.timeout_seconds,
-            "return_code": None,
-            "timed_out": True,
-            "passed": False,
-            "stdout_hash": _sha256(stdout),
-            "stderr_hash": _sha256(stderr),
+            "passed": self.passed,
+            "gates": [
+                {
+                    "name": gate.name,
+                    "passed": gate.passed,
+                    "required": gate.required,
+                    "details": gate.details,
+                }
+                for gate in self.gates
+            ],
         }
 
 
-def evaluate_quality(results: dict[str, Any], required_gates: tuple[str, ...] = ("tests", "validation", "evidence")) -> QualityResult:
-    gates = {gate: bool(results.get(gate, False)) for gate in required_gates}
-    failures = [gate for gate, passed in gates.items() if not passed]
-    evidence = results.get("_evidence")
-    return QualityResult(not failures, gates, failures, evidence if isinstance(evidence, list) else None)
+def evaluate_quality(results: Mapping[str, bool]) -> QualityReport:
+    return QualityReport(tuple(QualityGate(name, passed) for name, passed in results.items()))
+
+
+def run_quality_command(
+    name: str,
+    command: str,
+    *,
+    timeout_seconds: int = 300,
+    working_directory: str = ".",
+    project_root: Path | None = None,
+) -> QualityReport:
+    plan = build_project_command(name, command, timeout_seconds, working_directory)
+    execution = execute_command(plan, project_root=project_root)
+    details = {
+        "command_hash": execution["command_hash"],
+        "return_code": execution["return_code"],
+        "timed_out": execution["timed_out"],
+        "working_directory": execution["working_directory"],
+        "stdout_hash": execution["stdout_hash"],
+        "stderr_hash": execution["stderr_hash"],
+    }
+    return QualityReport((QualityGate(name, execution["passed"], True, str(details)),))

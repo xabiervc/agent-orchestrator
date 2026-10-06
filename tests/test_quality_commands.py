@@ -1,30 +1,43 @@
-import hashlib
 import sys
-import time
 from pathlib import Path
 
-from agent_orchestrator.commands import build_project_command
-from agent_orchestrator.quality import execute_quality_command
+import pytest
+
+from agent_orchestrator.quality import run_quality_command
 
 
-def test_command_gate_records_success_and_hashes():
-    plan = build_project_command("tests", f"{sys.executable} -c \"print('ok')\"")
-    result = execute_quality_command(plan)
-    assert result["passed"] is True
-    assert result["return_code"] == 0
-    assert result["stdout_hash"] == hashlib.sha256(b"ok\n").hexdigest()
-    assert len(result["command_hash"]) == 64
+def test_quality_command_passes_and_returns_execution_evidence(tmp_path: Path):
+    report = run_quality_command(
+        "tests",
+        f'{sys.executable} -c "print(\'ok\')"',
+        project_root=tmp_path,
+    )
+    assert report.passed is True
+    assert "command_hash" in report.gates[0].details
+    assert "return_code\': 0" in report.gates[0].details
 
 
-def test_command_gate_records_nonzero_exit():
-    plan = build_project_command("tests", f"{sys.executable} -c \"raise SystemExit(3)\"")
-    result = execute_quality_command(plan)
-    assert result["passed"] is False
-    assert result["return_code"] == 3
+def test_quality_command_reports_failure(tmp_path: Path):
+    report = run_quality_command(
+        "tests",
+        f'{sys.executable} -c "raise SystemExit(3)"',
+        project_root=tmp_path,
+    )
+    assert report.passed is False
+    assert "return_code\': 3" in report.gates[0].details
 
 
-def test_command_gate_records_timeout():
-    plan = build_project_command("tests", f"{sys.executable} -c \"import time; time.sleep(1)\"", timeout_seconds=1)
-    result = execute_quality_command(plan)
-    assert result["passed"] is False
-    assert result["timed_out"] is True
+def test_quality_command_reports_timeout(tmp_path: Path):
+    report = run_quality_command(
+        "tests",
+        f'{sys.executable} -c "import time; time.sleep(1)"',
+        timeout_seconds=1,
+        project_root=tmp_path,
+    )
+    assert report.passed is False
+    assert "timed_out\': True" in report.gates[0].details
+
+
+def test_quality_command_still_rejects_shell_control(tmp_path: Path):
+    with pytest.raises(ValueError):
+        run_quality_command("tests", "echo ok && echo bypass", project_root=tmp_path)
