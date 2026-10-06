@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from typing import Any
 
 from .artifacts import read_json, write_json
 
@@ -12,12 +13,17 @@ def _write_run_payload(run: Path, payload: dict) -> None:
     write_json(run / "state.json", payload)
 
 
-def create_run(root: Path, task: str) -> Path:
-    if not task.strip():
+def create_run(root: Path, config_or_task: Any, task: str | None = None) -> Path:
+    config = config_or_task if isinstance(config_or_task, dict) else None
+    task_text = task if task is not None else str(config_or_task)
+    if not task_text.strip():
         raise ValueError("Task is required.")
     run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
     run = root / ".agent" / "runs" / run_id
-    payload = {"run_id": run_id, "task": task.strip(), "state": "created", "history": ["created"]}
+    payload = {"run_id": run_id, "task": task_text.strip(), "state": "created", "history": ["created"]}
+    if config is not None:
+        payload["config"] = config
+        payload["proposal"] = {"task": task_text.strip(), "status": "pending"}
     _write_run_payload(run, payload)
     write_json(run / "evidence" / "manifest.json", {"entries": []})
     return run
