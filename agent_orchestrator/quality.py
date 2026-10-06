@@ -62,3 +62,21 @@ def run_quality_command(
         "stderr_hash": execution["stderr_hash"],
     }
     return QualityReport((QualityGate(name, execution["passed"], True, str(details)),))
+
+
+def execute_quality_command(
+    name: str,
+    command: str,
+    *,
+    timeout_seconds: int = 300,
+    working_directory: str = ".",
+    project_root: Path | None = None,
+) -> QualityReport:
+    """Compatibility API used by the CLI; delegates to the safe runner."""
+    return run_quality_command(
+        name,
+        command,
+        timeout_seconds=timeout_seconds,
+        working_directory=working_directory,
+        project_root=project_root,
+    )

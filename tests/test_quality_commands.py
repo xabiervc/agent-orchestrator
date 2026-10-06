@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_orchestrator.quality import run_quality_command
+from agent_orchestrator.quality import execute_quality_command, run_quality_command
 
 
 def test_quality_command_passes_and_returns_execution_evidence(tmp_path: Path):
@@ -41,3 +41,12 @@ def test_quality_command_reports_timeout(tmp_path: Path):
 def test_quality_command_still_rejects_shell_control(tmp_path: Path):
     with pytest.raises(ValueError):
         run_quality_command("tests", "echo ok && echo bypass", project_root=tmp_path)
+
+
+def test_legacy_execute_quality_command_api_delegates(tmp_path: Path):
+    report = execute_quality_command(
+        "tests",
+        f'{sys.executable} -c "print(\'ok\')"',
+        project_root=tmp_path,
+    )
+    assert report.passed is True
