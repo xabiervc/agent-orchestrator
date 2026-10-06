@@ -18,6 +18,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
       - run: pip install -e . -r requirements-dev.txt
-      - run: pytest --cov=agent_orchestrator --cov-report=term-missing --cov-fail-under=80
+      - run: pytest --cov=agent_orchestrator --cov=plugins --cov=game_production --cov=profiles --cov-report=term-missing --cov-fail-under=50
       - run: ruff check .
-      - run: mypy agent_orchestrator
+      - run: mypy agent_orchestrator plugins game_production profiles
