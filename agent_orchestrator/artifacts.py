@@ -5,11 +5,19 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
+def write_json(path: Path, payload: Any) -> Path:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target
+
+
+def read_json(path: Path) -> Any:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def write_project_config(root: Path, config: Mapping[str, Any]) -> Path:
-    path = root / ".agent" / "project.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(dict(config), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
+    return write_json(root / ".agent" / "project.json", dict(config))
 
 
 def latest_run(root: Path) -> Path | None:
@@ -23,9 +31,8 @@ def latest_run(root: Path) -> Path | None:
 def append_evidence_entries(run: Path, entries: list[Mapping[str, Any]]) -> Path:
     """Append evidence entries to a run manifest without changing its shape."""
     manifest = run / "evidence" / "manifest.json"
-    manifest.parent.mkdir(parents=True, exist_ok=True)
     if manifest.exists():
-        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        payload = read_json(manifest)
     else:
         payload = {"entries": []}
     if isinstance(payload, list):
@@ -36,5 +43,4 @@ def append_evidence_entries(run: Path, entries: list[Mapping[str, Any]]) -> Path
     if not isinstance(existing, list):
         raise ValueError("Evidence manifest entries must be a list.")
     existing.extend(dict(entry) for entry in entries)
-    manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return manifest
+    return write_json(manifest, payload)
