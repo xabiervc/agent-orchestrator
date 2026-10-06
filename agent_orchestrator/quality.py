@@ -36,8 +36,8 @@ def execute_quality_command(plan: ProjectCommandPlan) -> dict[str, Any]:
         stderr = completed.stderr or ""
         return {
             "gate": plan.name,
-            "command": plan.command,
             "command_hash": command_hash,
+            "working_directory": str(plan.working_directory),
             "timeout_seconds": plan.timeout_seconds,
             "return_code": completed.returncode,
             "timed_out": False,
@@ -54,8 +54,8 @@ def execute_quality_command(plan: ProjectCommandPlan) -> dict[str, Any]:
             stderr = stderr.decode("utf-8", errors="replace")
         return {
             "gate": plan.name,
-            "command": plan.command,
             "command_hash": command_hash,
+            "working_directory": str(plan.working_directory),
             "timeout_seconds": plan.timeout_seconds,
             "return_code": None,
             "timed_out": True,
@@ -63,10 +63,3 @@ def execute_quality_command(plan: ProjectCommandPlan) -> dict[str, Any]:
             "stdout_hash": _sha256(stdout),
             "stderr_hash": _sha256(stderr),
         }
-
-
-def evaluate_quality(results: dict[str, Any], required_gates: tuple[str, ...] = ("tests", "validation", "evidence")) -> QualityResult:
-    gates = {gate: bool(results.get(gate, False)) for gate in required_gates}
-    failures = [gate for gate, passed in gates.items() if not passed]
-    evidence = results.get("_evidence")
-    return QualityResult(not failures, gates, failures, evidence if isinstance(evidence, list) else None)
