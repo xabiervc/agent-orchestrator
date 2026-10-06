@@ -4,7 +4,7 @@ from pathlib import Path
 from agent_orchestrator.cli import main
 
 
-def test_cli_can_create_and_advance_run(tmp_path: Path, monkeypatch, capsys):
+def test_cli_can_create_and_advance_run(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert main(["init", "--profile", "generic"]) == 0
     assert main(["start", "--task", "Test lifecycle"]) == 0
@@ -17,3 +17,7 @@ def test_cli_can_create_and_advance_run(tmp_path: Path, monkeypatch, capsys):
 
 def test_cli_quality_returns_failure_code():
     assert main(["quality", "--result", "tests=false"]) == 1
+
+
+def test_cli_quality_passes_all_gates():
+    assert main(["quality", "--result", "tests=true", "--result", "validation=true", "--result", "evidence=true"]) == 0

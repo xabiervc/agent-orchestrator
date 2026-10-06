@@ -73,6 +73,16 @@ def _parse_entries(values: list[str]) -> list[dict[str, str]]:
     return entries
 
 
+def _quality_results(values: list[str]) -> dict[str, bool]:
+    results = {}
+    for item in values:
+        key, separator, value = item.partition("=")
+        if not separator:
+            raise SystemExit("Quality results must use gate=true or gate=false.")
+        results[key] = _parse_bool(value)
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = Path.cwd()
@@ -88,6 +98,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
         return 0
+    if args.command == "quality":
+        result = evaluate_quality(_quality_results(args.result))
+        print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures}, indent=2))
+        return 0 if result.passed else 1
     if args.command == "start":
         config = load_project_config(root)
         print(create_run(root, config, args.task))
@@ -104,16 +118,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "handoff":
         print(json.dumps(create_handoff(run, args.provider, args.model, args.allowed_file, args.verify_command), indent=2))
         return 0
-    if args.command == "quality":
-        results = {}
-        for item in args.result:
-            key, separator, value = item.partition("=")
-            if not separator:
-                raise SystemExit("Quality results must use gate=true or gate=false.")
-            results[key] = _parse_bool(value)
-        result = evaluate_quality(results)
-        print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures}, indent=2))
-        return 0 if result.passed else 1
     if args.command == "evidence":
         manifest = create_evidence_manifest(run, _parse_entries(args.entry))
         errors = validate_evidence_manifest(manifest, run.name)
