@@ -22,11 +22,16 @@ class ProjectConfig:
     project_name: str
     project_root: Path
     config_path: Path
+    profiles: tuple[str, ...] = ()
     environment: str = "development"
     command_timeout_seconds: int = 300
     required_checks: tuple[str, ...] = ()
     protected_paths: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def _config_path(project_root: Path) -> Path:
+    return project_root / "project.json"
 
 
 def load_config(path: Path) -> AppConfig:
@@ -42,12 +47,16 @@ def load_config(path: Path) -> AppConfig:
     )
 
 
-def load_project_config(path: Path) -> ProjectConfig:
+def load_project_config(project_root: Path) -> ProjectConfig:
+    root = Path(project_root)
+    path = _config_path(root)
     data = json.loads(path.read_text(encoding="utf-8"))
+    project = dict(data.get("project", {}))
     return ProjectConfig(
-        project_name=str(data["project_name"]),
-        project_root=Path(data["project_root"]),
+        project_name=str(project.get("name", root.name)),
+        project_root=root,
         config_path=path,
+        profiles=tuple(data.get("profiles", ())),
         environment=data.get("environment", "development"),
         command_timeout_seconds=int(data.get("command_timeout_seconds", 300)),
         required_checks=tuple(data.get("required_checks", ())),
@@ -56,15 +65,7 @@ def load_project_config(path: Path) -> ProjectConfig:
     )
 
 
-def write_project_config(config: ProjectConfig, path: Path | None = None) -> None:
-    target = path or config.config_path
-    data = {
-        "project_name": config.project_name,
-        "project_root": str(config.project_root),
-        "environment": config.environment,
-        "command_timeout_seconds": config.command_timeout_seconds,
-        "required_checks": list(config.required_checks),
-        "protected_paths": list(config.protected_paths),
-        "metadata": config.metadata,
-    }
-    target.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+def write_project_config(project_root: Path, data: dict[str, Any]) -> None:
+    root = Path(project_root)
+    root.mkdir(parents=True, exist_ok=True)
+    _config_path(root).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
