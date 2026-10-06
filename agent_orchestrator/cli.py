@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     handoff.add_argument("--verify-command", action="append", default=[])
     quality = sub.add_parser("quality")
     quality.add_argument("--result", action="append", default=[], help="gate=true or gate=false")
-    quality.add_argument("--command", action="append", default=[], help="gate=command")
+    quality.add_argument("--command", dest="command_specs", action="append", default=[], help="gate=command")
     quality.add_argument("--timeout", type=int, default=300)
     evidence = sub.add_parser("evidence")
     evidence.add_argument("--entry", action="append", default=[], help="key=value,key=value")
@@ -111,16 +111,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "quality":
         results = _quality_results(args.result)
-        command_results = _quality_commands(args.command, args.timeout) if args.command else []
+        command_results = _quality_commands(args.command_specs, args.timeout) if args.command_specs else []
         for item in command_results:
             results[item["gate"]] = bool(item["passed"])
         if command_results:
             results["_evidence"] = command_results
-        result = evaluate_quality(results)
-        if command_results:
             run = latest_run(root)
             if run is not None:
                 append_evidence_entries(run, command_results)
+        result = evaluate_quality(results)
         print(json.dumps({"passed": result.passed, "gates": result.gates, "failures": result.failures, "evidence": result.evidence}, indent=2))
         return 0 if result.passed else 1
     if args.command == "start":
