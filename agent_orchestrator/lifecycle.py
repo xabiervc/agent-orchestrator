@@ -40,7 +40,8 @@ class RunState:
     FAILED = _StateValue("failed")
 
     def __init__(self, value: str = "created") -> None:
-        if value not in {state.value for state in (self.CREATED, self.PLANNING, self.REVIEWING, self.CONSENSUS, self.ADVANCED, self.COMPLETED, self.FAILED)}:
+        values = {state.value for state in (self.CREATED, self.PLANNING, self.REVIEWING, self.CONSENSUS, self.ADVANCED, self.COMPLETED, self.FAILED)}
+        if value not in values:
             raise ValueError(f"Unknown run state: {value}")
         self.value = value
 
@@ -48,8 +49,17 @@ class RunState:
         _StateValue(self.value).transition(target)
         return RunState(target)
 
+    def __str__(self) -> str:
+        return self.value
+
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, RunState) and self.value == other.value
+        if isinstance(other, RunState):
+            return self.value == other.value
+        if isinstance(other, _StateValue):
+            return self.value == other.value
+        if isinstance(other, str):
+            return self.value == other
+        return False
 
     def __repr__(self) -> str:
         return f"RunState({self.value!r})"
