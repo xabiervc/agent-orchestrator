@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
-from pathlib import Path
 import shlex
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .commands import ProjectCommandPlan
@@ -45,27 +45,10 @@ def execute_command(plan: ProjectCommandPlan, *, project_root: Path | None = Non
         raise ValueError("Command must contain an executable.")
     working_directory = _safe_working_directory(root, plan.working_directory)
     try:
-        completed = subprocess.run(
-            argv,
-            shell=False,
-            cwd=working_directory,
-            capture_output=True,
-            text=True,
-            timeout=plan.timeout_seconds,
-            check=False,
-        )
+        completed = subprocess.run(argv, shell=False, cwd=working_directory, capture_output=True, text=True, timeout=plan.timeout_seconds, check=False)
         stdout = completed.stdout or ""
         stderr = completed.stderr or ""
-        return {
-            "gate": plan.name,
-            "command_hash": _hash(plan.command),
-            "working_directory": str(working_directory),
-            "return_code": completed.returncode,
-            "timed_out": False,
-            "passed": completed.returncode == 0,
-            "stdout_hash": _hash(stdout),
-            "stderr_hash": _hash(stderr),
-        }
+        return {"gate": plan.name, "command_hash": _hash(plan.command), "working_directory": str(working_directory), "return_code": completed.returncode, "timed_out": False, "passed": completed.returncode == 0, "stdout_hash": _hash(stdout), "stderr_hash": _hash(stderr)}
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout or ""
         stderr = exc.stderr or ""
@@ -73,13 +56,4 @@ def execute_command(plan: ProjectCommandPlan, *, project_root: Path | None = Non
             stdout = stdout.decode("utf-8", errors="replace")
         if isinstance(stderr, bytes):
             stderr = stderr.decode("utf-8", errors="replace")
-        return {
-            "gate": plan.name,
-            "command_hash": _hash(plan.command),
-            "working_directory": str(working_directory),
-            "return_code": None,
-            "timed_out": True,
-            "passed": False,
-            "stdout_hash": _hash(stdout),
-            "stderr_hash": _hash(stderr),
-        }
+        return {"gate": plan.name, "command_hash": _hash(plan.command), "working_directory": str(working_directory), "return_code": None, "timed_out": True, "passed": False, "stdout_hash": _hash(stdout), "stderr_hash": _hash(stderr)}

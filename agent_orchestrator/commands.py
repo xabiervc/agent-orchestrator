@@ -5,14 +5,14 @@ from pathlib import Path
 
 
 _MAX_TIMEOUT_SECONDS = 3600
-_UNSAFE_SHELL_OPERATORS = ("&&", "||", ";", "|", ">", "<", "`", "$(',")
+_UNSAFE_SHELL_OPERATORS = ("&&", "||", ";", "|", ">", "<", "`", "$(")
 
 
 @dataclass(frozen=True)
 class ProjectCommandPlan:
     name: str
     command: str
-    timeout_seconds: int
+    timeout_seconds: int = 300
     working_directory: str = "."
 
 
@@ -39,7 +39,7 @@ def _has_unsafe_shell_operator(command: str) -> bool:
             quote = char
             index += 1
             continue
-        if command.startswith("$(',", index):
+        if command.startswith("$(", index):
             return True
         if command.startswith("&&", index) or command.startswith("||", index):
             return True
