@@ -9,7 +9,6 @@ from .consensus import calculate_consensus
 from .evidence import create_evidence_manifest, validate_evidence_manifest
 from .handoff import create_handoff
 from .lifecycle import RunState
-from .policy import RoutingPolicy
 from .quality import evaluate_quality
 from .providers import detect_provider
 from .routing import route_for, route_dict
@@ -92,8 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "route":
         selected = route_for(args.role, risk=args.risk)
-        model = RoutingPolicy().model_for(args.risk)
-        print(json.dumps({"role": args.role, "risk": args.risk, **route_dict(selected), "model": model}, indent=2))
+        print(json.dumps({"role": args.role, "risk": args.risk, **route_dict(selected)}, indent=2))
         return 0
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
