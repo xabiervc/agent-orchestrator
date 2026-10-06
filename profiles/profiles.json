@@ -1,10 +1,10 @@
 {
   "generic": {"kind": "software", "capabilities": ["source_editing", "automated_tests"], "risk_areas": ["source", "dependencies"]},
-  "godot": {"kind": "game", "engine": "godot", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "persistence", "asset_pipeline"], "risk_areas": ["project_settings", "autoloads", "save_data", "scenes"]},
+  "godot": {"kind": "game", "engine": "godot", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "persistence", "asset_pipeline", "editor_mcp", "scene_inspection", "scene_editing", "node_inspection", "project_settings_read", "input_map_read"], "risk_areas": ["project_settings", "autoloads", "save_data", "scenes", "input_actions", "resource_uids", "export_presets", "editor_mcp"]},
   "unreal": {"kind": "game", "engine": "unreal", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline", "editor_mcp", "blueprint_editing", "level_editing", "actor_inspection", "material_editing", "widget_editing", "animation_editing"], "risk_areas": ["build_target", "blueprints", "gameplay_code", "assets", "input", "animation", "navigation", "pcg", "project_settings", "editor_mcp"]},
   "unity": {"kind": "game", "engine": "unity", "capabilities": ["source_editing", "automated_tests", "runtime_launch", "visual_evidence", "packaging", "asset_pipeline"], "risk_areas": ["project_settings", "scenes", "assets", "packages"]},
   "mobile": {"kind": "mobile", "capabilities": ["source_editing", "automated_tests", "packaging", "device_evidence"], "risk_areas": ["signing", "permissions", "platform_configuration"]},
-  "web": {"kind": "web", "capabilities": ["source_editing", "automated_tests", "packaging", "browser_evidence"], "risk_areas": ["build", "routing", "security"]},
+  "web": {"kind": "web", "capabilities": ["source_editing", "automated_tests", "browser_evidence", "packaging"], "risk_areas": ["build", "routing", "security"]},
   "desktop": {"kind": "desktop", "capabilities": ["source_editing", "automated_tests", "packaging", "runtime_launch"]},
   "backend": {"kind": "backend", "capabilities": ["source_editing", "automated_tests", "packaging"], "risk_areas": ["data_migrations", "security", "deployment"]},
   "asset-pipeline": {"kind": "content", "capabilities": ["asset_search", "asset_download", "license_tracking", "provenance_tracking"], "risk_areas": ["license", "archive", "destination", "provenance"]}
