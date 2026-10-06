@@ -27,3 +27,11 @@ def advance_run(run: Path, state: str = "advanced") -> dict:
     payload.setdefault("history", []).append(state)
     write_json(run / "state.json", payload)
     return payload
+
+
+def latest_run(root: Path) -> Path | None:
+    runs = root / ".agent" / "runs"
+    if not runs.exists():
+        return None
+    candidates = sorted((path for path in runs.iterdir() if path.is_dir()), reverse=True)
+    return candidates[0] if candidates else None

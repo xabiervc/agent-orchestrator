@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+from enum import Enum
 from pathlib import Path
 
 from .runs import advance_run, create_run, load_run
+
+
+class RunState(str, Enum):
+    CREATED = "created"
+    ADVANCED = "advanced"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 def start_task(root: Path, task: str) -> Path:
