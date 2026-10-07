@@ -14,7 +14,7 @@ class _StateValue:
     def state(self) -> str:
         return self.value
 
-    def transition(self, target: str) -> "_StateValue":
+    def transition(self, target: str) -> _StateValue:
         allowed = {
             "created": {"planning", "failed"},
             "planning": {"reviewing", "failed"},

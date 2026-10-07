@@ -15,7 +15,7 @@ class RoutingPolicy:
     max_parallel_implementers: int = 1
 
     @classmethod
-    def from_config(cls, data: dict[str, Any]) -> "RoutingPolicy":
+    def from_config(cls, data: dict[str, Any]) -> RoutingPolicy:
         routing = data.get("routing", {})
         policy = data.get("policy", {})
         return cls(
