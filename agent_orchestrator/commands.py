@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-
 _MAX_TIMEOUT_SECONDS = 3600
 _UNSAFE_SHELL_OPERATORS = ("&&", "||", ";", "|", ">", "<", "`", "$(")
 
