@@ -21,6 +21,14 @@ def create_run(root: Path, task: str) -> Path:
     return run
 
 
+def latest_run(root: Path) -> Path | None:
+    runs = root / ".agent" / "runs"
+    if not runs.exists():
+        return None
+    directories = sorted(path for path in runs.iterdir() if path.is_dir())
+    return directories[-1] if directories else None
+
+
 def load_run(run: Path) -> dict[str, Any]:
     return read_json(run / "run.json")
 

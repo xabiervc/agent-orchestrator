@@ -25,6 +25,12 @@ class QualityGate:
     working_directory: str = "."
 
 
+@dataclass(frozen=True)
+class QualityGateReport:
+    passed: bool
+    gates: list[QualityGate]
+
+
 def _quality_evidence(plan: ProjectCommandPlan, project_root: Path | None = None) -> dict[str, Any]:
     result = execute_command(plan, project_root=project_root)
     result["command"] = plan.command
@@ -32,8 +38,23 @@ def _quality_evidence(plan: ProjectCommandPlan, project_root: Path | None = None
     return result
 
 
-def execute_quality_command(plan: ProjectCommandPlan, *, project_root: Path | None = None) -> dict[str, Any]:
-    return _quality_evidence(plan, project_root)
+def _report_from_result(result: dict[str, Any]) -> QualityGateReport:
+    details = str(result)
+    gate = QualityGate(result["gate"], result.get("command", ""), int(result.get("timeout_seconds", 300)))
+    return QualityGateReport(bool(result.get("passed")), [QualityGate(gate.name, gate.command, gate.timeout_seconds, details)])
+
+
+def run_quality_command(name: str, command: str, timeout_seconds: int = 300, *, project_root: Path | None = None) -> QualityGateReport:
+    plan = build_project_command(name, command, timeout_seconds)
+    return _report_from_result(_quality_evidence(plan, project_root))
+
+
+def execute_quality_command(plan_or_name: ProjectCommandPlan | str, command: str | None = None, *, timeout_seconds: int = 300, project_root: Path | None = None) -> QualityGateReport | dict[str, Any]:
+    if isinstance(plan_or_name, ProjectCommandPlan):
+        return _quality_evidence(plan_or_name, project_root)
+    if command is None:
+        raise TypeError("command is required when the first argument is a gate name")
+    return run_quality_command(plan_or_name, command, timeout_seconds, project_root=project_root)
 
 
 def evaluate_quality(results: dict[str, Any], required_gates: tuple[str, ...] = ("tests", "validation", "evidence")) -> QualityResult:
