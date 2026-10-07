@@ -38,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     handoff_parser.add_argument("--verify-command", action="append", default=[])
     quality_parser = sub.add_parser("quality")
     quality_parser.add_argument("--result", action="append", default=[])
-    quality_parser.add_argument("--command", action="append", default=[])
+    quality_parser.add_argument("--command", dest="command_specs", action="append", default=[])
     quality_parser.add_argument("--timeout", type=int, default=300)
     evidence_parser = sub.add_parser("evidence")
     evidence_parser.add_argument("--entry", action="append", default=[])
@@ -96,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
         write_project_config(root, {"project": {"name": root.name}, "profiles": [args.profile]})
         return 0
     if args.command == "route":
-        print(json.dumps(route_dict(route_for(args.role, risk=args.risk)), indent=2))
+        route = route_for(args.role, risk=args.risk)
+        payload = {"role": args.role, "risk": args.risk, **route_dict(route)}
+        print(json.dumps(payload, indent=2))
         return 0
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
@@ -113,15 +115,12 @@ def main(argv: list[str] | None = None) -> int:
                 raise SystemExit("Quality results must use gate=true or gate=false.")
             results[key.strip()] = _parse_bool(value)
         command_results: list[dict[str, object]] = []
-        run = latest_run(root) if args.command else None
-        if args.command and run is not None:
-            command_results = _quality_commands(args.command, args.timeout, root)
+        if args.command_specs:
+            run = _latest_or_error(root)
+            command_results = _quality_commands(args.command_specs, args.timeout, root)
             for item in command_results:
                 results[str(item["gate"])] = bool(item["passed"])
             append_evidence_entries(run, command_results)
-            manifest_path = run / "evidence" / "manifest.json"
-            if not manifest_path.exists():
-                create_evidence_manifest(run, command_results)
         result = evaluate_quality(results, required_gates=tuple(results.keys()))
         print(json.dumps(result.as_dict(), indent=2))
         return 0 if result.passed else 1
