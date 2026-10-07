@@ -1,58 +1,33 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from .command_runner import execute_command
-from .commands import build_project_command
+from .commands import ProjectCommandPlan, build_project_command
 
 
 @dataclass(frozen=True)
 class QualityGate:
     name: str
-    passed: bool
-    required: bool = True
-    details: str = ""
+    command: str
+    timeout_seconds: int = 300
+    working_directory: str = "."
 
 
-@dataclass(frozen=True)
-class QualityReport:
-    gates: tuple[QualityGate, ...]
-
-    @property
-    def passed(self) -> bool:
-        return all(gate.passed for gate in self.gates if gate.required)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {"passed": self.passed, "gates": [{"name": gate.name, "passed": gate.passed, "required": gate.required, "details": gate.details} for gate in self.gates]}
-
-
-@dataclass(frozen=True)
-class QualityResult:
-    passed: bool
-    failures: list[str]
-    gates: tuple[QualityGate, ...] = ()
-
-    @property
-    def failed(self) -> bool:
-        return not self.passed
-
-    def as_dict(self) -> dict[str, Any]:
-        return {"passed": self.passed, "failures": self.failures, "gates": [{"name": gate.name, "passed": gate.passed, "required": gate.required, "details": gate.details} for gate in self.gates]}
-
-
-def evaluate_quality(results: Mapping[str, bool]) -> QualityResult:
-    failures = [name for name, passed in results.items() if not passed]
-    return QualityResult(not failures, failures, tuple(QualityGate(name, passed) for name, passed in results.items()))
-
-
-def run_quality_command(name: str, command: str, *, timeout_seconds: int = 300, working_directory: str = ".", project_root: Path | None = None) -> QualityReport:
+def build_quality_gate(name: str, command: str, timeout_seconds: int = 300, working_directory: str = ".") -> QualityGate:
     plan = build_project_command(name, command, timeout_seconds, working_directory)
-    execution = execute_command(plan, project_root=project_root)
-    details = {"command_hash": execution["command_hash"], "return_code": execution["return_code"], "timed_out": execution["timed_out"], "working_directory": execution["working_directory"], "stdout_hash": execution["stdout_hash"], "stderr_hash": execution["stderr_hash"]}
-    return QualityReport((QualityGate(name, execution["passed"], True, str(details)),))
+    return QualityGate(plan.name, plan.command, plan.timeout_seconds, plan.working_directory)
 
 
-def execute_quality_command(name: str, command: str, *, timeout_seconds: int = 300, working_directory: str = ".", project_root: Path | None = None) -> QualityReport:
-    return run_quality_command(name, command, timeout_seconds=timeout_seconds, working_directory=working_directory, project_root=project_root)
+def run_quality_gate(gate: QualityGate, *, project_root: Path | None = None) -> dict[str, Any]:
+    plan = ProjectCommandPlan(gate.name, gate.command, gate.timeout_seconds, gate.working_directory)
+    return execute_command(plan, project_root=project_root)
+
+
+def summarize_quality(results: list[Mapping[str, Any]]) -> dict[str, Any]:
+    passed = [result for result in results if result.get("passed") is True]
+    failed = [result for result in results if result.get("passed") is False]
+    return {"passed": not failed and bool(results), "total": len(results), "passed_count": len(passed), "failed_count": len(failed)}
