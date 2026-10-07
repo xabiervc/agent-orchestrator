@@ -8,17 +8,19 @@ from .policy import RoutingPolicy
 
 
 def route_for(role: str, *, risk: str = "normal", profiles: list[str] | None = None) -> Route:
-    profiles = profiles or []
-    if role in {"planning", "review"} and risk in {"high", "critical"}:
-        selected = DEFAULT_ROUTES["architecture_review"]
+    del profiles
+    normalized_risk = "normal" if risk == "mechanical" else risk
+    if role in {"planning", "review"} and normalized_risk in {"high", "critical"}:
+        key = "architecture_review" if "architecture_review" in DEFAULT_ROUTES else role
     elif role in {"implementation", "implement"}:
-        key = "complex_implementation" if risk in {"high", "critical"} else "normal_implementation"
-        if risk == "low":
-            key = "low_risk_implementation"
-        selected = DEFAULT_ROUTES[key]
+        preferred = "complex_implementation" if normalized_risk in {"high", "critical"} else "normal_implementation"
+        if normalized_risk == "low":
+            preferred = "low_risk_implementation"
+        key = preferred if preferred in DEFAULT_ROUTES else "complex_implementation"
     else:
-        selected = DEFAULT_ROUTES.get(role, DEFAULT_ROUTES["planning"])
-    return replace(selected, model=RoutingPolicy().model_for(risk))
+        key = role if role in DEFAULT_ROUTES else "planning"
+    selected = DEFAULT_ROUTES[key]
+    return replace(selected, model=RoutingPolicy().model_for(normalized_risk))
 
 
 def route_dict(route: Route) -> dict[str, Any]:
