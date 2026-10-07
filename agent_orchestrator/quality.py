@@ -16,6 +16,9 @@ class QualityResult:
     failures: list[str]
     evidence: list[dict[str, Any]] | None = None
 
+    def as_dict(self) -> dict[str, Any]:
+        return {"passed": self.passed, "gates": self.gates, "failures": self.failures, "evidence": self.evidence}
+
 
 @dataclass(frozen=True)
 class QualityGate:
@@ -23,6 +26,8 @@ class QualityGate:
     command: str
     timeout_seconds: int = 300
     working_directory: str = "."
+    passed: bool = False
+    details: str = ""
 
 
 @dataclass(frozen=True)
@@ -40,8 +45,8 @@ def _quality_evidence(plan: ProjectCommandPlan, project_root: Path | None = None
 
 def _report_from_result(result: dict[str, Any]) -> QualityGateReport:
     details = str(result)
-    gate = QualityGate(result["gate"], result.get("command", ""), int(result.get("timeout_seconds", 300)))
-    return QualityGateReport(bool(result.get("passed")), [QualityGate(gate.name, gate.command, gate.timeout_seconds, details)])
+    gate = QualityGate(name=result["gate"], command=result.get("command", ""), timeout_seconds=int(result.get("timeout_seconds", 300)), passed=bool(result.get("passed")), details=details)
+    return QualityGateReport(gate.passed, [gate])
 
 
 def run_quality_command(name: str, command: str, timeout_seconds: int = 300, *, project_root: Path | None = None) -> QualityGateReport:

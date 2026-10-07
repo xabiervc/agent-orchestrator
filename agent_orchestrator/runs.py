@@ -12,12 +12,19 @@ def _run_path(root: Path, run_id: str) -> Path:
     return root / ".agent" / "runs" / run_id
 
 
-def create_run(root: Path, task: str) -> Path:
+def create_run(root: Path, config_or_task: Any, task: str | None = None) -> Path:
+    config = config_or_task if task is not None else None
+    task_name = task if task is not None else str(config_or_task)
     run_id = f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
     run = _run_path(root, run_id)
     for directory in ("proposals", "reviews", "evidence", "exports"):
         (run / directory).mkdir(parents=True, exist_ok=True)
-    write_json(run / "run.json", {"schema_version": 1, "run_id": run_id, "task": task, "state": "created"})
+    payload: dict[str, Any] = {"schema_version": 1, "run_id": run_id, "task": task_name, "state": "created"}
+    if config is not None:
+        raw = getattr(config, "raw", None)
+        if isinstance(raw, dict):
+            payload["config"] = raw
+    write_json(run / "run.json", payload)
     return run
 
 
