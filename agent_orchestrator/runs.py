@@ -25,6 +25,7 @@ def create_run(root: Path, config_or_task: Any, task: str | None = None) -> Path
         if isinstance(raw, dict):
             payload["config"] = raw
     write_json(run / "run.json", payload)
+    write_json(run / "state.json", {"state": "created", "history": ["created"]})
     return run
 
 
@@ -48,4 +49,9 @@ def advance_run(run: Path, state: str) -> dict[str, Any]:
     payload = load_run(run)
     payload["state"] = state
     save_run(run, payload)
+    state_path = run / "state.json"
+    state_data = read_json(state_path) if state_path.exists() else {"history": []}
+    state_data.setdefault("history", []).append(state)
+    state_data["state"] = state
+    write_json(state_path, state_data)
     return payload

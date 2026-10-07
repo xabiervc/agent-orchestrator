@@ -4,103 +4,145 @@ import argparse
 import json
 from pathlib import Path
 
-from .artifacts import append_evidence_entries, latest_run, write_project_config
-from .lifecycle import advance_task, start_task, transition_task
+from .commands import build_project_command
+from .config import load_project_config, write_project_config
+from .consensus import calculate_consensus
+from .evidence import append_evidence_entries, create_evidence_manifest, validate_evidence_manifest
+from .handoff import create_handoff
+from .lifecycle import RunState
 from .providers import detect_provider
 from .quality import evaluate_quality, execute_quality_command
-from .routing import route_dict, route_for
-
-
-def _quality_results(values: list[str]) -> dict[str, bool]:
-    results: dict[str, bool] = {}
-    for value in values:
-        name, separator, status = value.partition("=")
-        if not separator or not name.strip():
-            raise ValueError("Quality results must use NAME=true|false syntax.")
-        normalized = status.strip().lower()
-        if normalized not in {"true", "false"}:
-            raise ValueError("Quality result status must be true or false.")
-        results[name.strip()] = normalized == "true"
-    return results
-
-
-def _quality_commands(values: list[str], timeout: int) -> list[dict[str, object]]:
-    command_results: list[dict[str, object]] = []
-    for value in values:
-        name, separator, command = value.partition("=")
-        if not separator or not name.strip() or not command.strip():
-            raise ValueError("Quality commands must use NAME=COMMAND syntax.")
-        report = execute_quality_command(name.strip(), command.strip(), timeout_seconds=timeout)
-        gate = report.gates[0]
-        command_results.append({"gate": gate.name, "passed": gate.passed, "details": gate.details})
-    return command_results
+from .routing import route_for, route_dict
+from .runs import create_run, latest_run
+from .validation import validate_run
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agent")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    init_parser = subparsers.add_parser("init")
-    init_parser.add_argument("--profile", default="software")
-    start_parser = subparsers.add_parser("start")
-    start_parser.add_argument("--task", required=True)
-    advance_parser = subparsers.add_parser("advance")
-    advance_parser.add_argument("--run", required=True)
-    advance_parser.add_argument("--state", default="advanced")
-    transition_parser = subparsers.add_parser("transition")
-    transition_parser.add_argument("--run")
-    transition_parser.add_argument("--to", required=True)
-    route_parser = subparsers.add_parser("route")
-    route_parser.add_argument("--role", required=True)
-    route_parser.add_argument("--risk", default="low")
-    provider_parser = subparsers.add_parser("provider")
-    provider_parser.add_argument("--name", required=True)
-    quality_parser = subparsers.add_parser("quality")
-    quality_parser.add_argument("--result", action="append", default=[])
-    quality_parser.add_argument("--command", dest="command_specs", action="append", default=[])
-    quality_parser.add_argument("--timeout", type=int, default=300)
+    parser = argparse.ArgumentParser(prog="agent", description="Provider-agnostic coding-agent orchestrator")
+    sub = parser.add_subparsers(dest="command", required=True)
+    init = sub.add_parser("init")
+    init.add_argument("--profile", default="generic")
+    start = sub.add_parser("start")
+    start.add_argument("--task", required=True)
+    route = sub.add_parser("route")
+    route.add_argument("--risk", choices=["low", "medium", "high", "critical"], default="medium")
+    route.add_argument("--role", choices=["exploration", "planning", "review", "implementation"], default="planning")
+    provider = sub.add_parser("provider")
+    provider.add_argument("name", choices=["claude-code", "codex", "copilot"])
+    transition = sub.add_parser("transition")
+    transition.add_argument("--to", dest="target", required=True)
+    handoff = sub.add_parser("handoff")
+    handoff.add_argument("--provider", required=True)
+    handoff.add_argument("--model", required=True)
+    handoff.add_argument("--allowed-file", action="append", default=[])
+    handoff.add_argument("--verify-command", action="append", default=[])
+    quality = sub.add_parser("quality")
+    quality.add_argument("--result", action="append", default=[])
+    quality.add_argument("--command", action="append", default=[])
+    quality.add_argument("--timeout", type=int, default=300)
+    evidence = sub.add_parser("evidence")
+    evidence.add_argument("--entry", action="append", default=[])
+    for name in ("status", "consensus", "validate"):
+        sub.add_parser(name)
     return parser
+
+
+def _parse_bool(value: str) -> bool:
+    if value.lower() in {"true", "1", "yes", "pass", "passed"}:
+        return True
+    if value.lower() in {"false", "0", "no", "fail", "failed"}:
+        return False
+    raise argparse.ArgumentTypeError("Expected true or false.")
+
+
+def _latest_or_error(root: Path) -> Path:
+    run = latest_run(root)
+    if run is None:
+        raise SystemExit("No runs found.")
+    return run
+
+
+def _parse_entries(values: list[str]) -> list[dict[str, str]]:
+    entries = []
+    for value in values:
+        entry = {}
+        for pair in value.split(","):
+            key, separator, item = pair.partition("=")
+            if not separator or not key.strip() or not item.strip():
+                raise ValueError("Evidence entries must use key=value pairs.")
+            entry[key.strip()] = item.strip()
+        entries.append(entry)
+    return entries
+
+
+def _quality_commands(values: list[str], timeout: int, project_root: Path) -> list[dict[str, object]]:
+    results = []
+    for item in values:
+        name, separator, command = item.partition("=")
+        if not separator or not name.strip() or not command.strip():
+            raise SystemExit("Quality commands must use gate=command.")
+        plan = build_project_command(name.strip(), command.strip(), timeout_seconds=timeout)
+        result = execute_quality_command(plan, project_root=project_root)
+        if not isinstance(result, dict):
+            raise TypeError("Command execution must return evidence mapping.")
+        results.append(result)
+    return results
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = Path.cwd()
     if args.command == "init":
-        config = {"schema_version": 1, "project": {"name": root.name, "kind": "software"}, "profiles": [args.profile], "commands": {}, "context": {"required": []}, "risks": {}}
-        print(write_project_config(root, config))
-        return 0
-    if args.command == "start":
-        run = start_task(root, args.task)
-        print(run)
-        return 0
-    if args.command == "advance":
-        payload = advance_task(Path(args.run), args.state)
-        print(json.dumps(payload, indent=2, sort_keys=True))
-        return 0
-    if args.command == "transition":
-        run = Path(args.run) if args.run else latest_run(root)
-        if run is None:
-            raise ValueError("No run available for transition.")
-        payload = transition_task(run, args.to)
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        write_project_config(root, {"project": {"name": root.name}, "profiles": [args.profile]})
         return 0
     if args.command == "route":
-        selected = route_for(args.role, risk=args.risk)
-        print(json.dumps({"role": args.role, "risk": args.risk, **route_dict(selected)}, indent=2))
+        result = route_for(args.role, args.risk)
+        print(json.dumps(route_dict(result), indent=2))
         return 0
     if args.command == "provider":
         print(json.dumps(detect_provider(args.name).__dict__, indent=2))
         return 0
+    if args.command == "start":
+        config = load_project_config(root)
+        print(create_run(root, config, args.task))
+        return 0
+    run = _latest_or_error(root)
+    if args.command == "transition":
+        payload = json.loads((run / "run.json").read_text(encoding="utf-8"))
+        state = RunState(payload.get("state", "created")).transition(args.target)
+        payload["state"] = state.state
+        (run / "run.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        state_data_path = run / "state.json"
+        state_data = json.loads(state_data_path.read_text(encoding="utf-8")) if state_data_path.exists() else {"history": ["created"]}
+        state_data["history"].append(state.state)
+        state_data_path.write_text(json.dumps(state_data, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(payload, indent=2))
+        return 0
     if args.command == "quality":
-        results = _quality_results(args.result)
-        command_results = _quality_commands(args.command_specs, args.timeout) if args.command_specs else []
+        results = {}
+        command_results = _quality_commands(args.command, args.timeout, root) if args.command else []
         for item in command_results:
-            results[str(item["gate"])] = bool(item["passed"])
+            results[item["gate"]] = bool(item["passed"])
+        for item in args.result:
+            key, separator, value = item.partition("=")
+            if not separator:
+                raise SystemExit("Quality results must use gate=true or gate=false.")
+            results[key] = _parse_bool(value)
         if command_results:
-            results["_evidence"] = all(bool(item["passed"]) for item in command_results)
-            run = latest_run(root)
-            if run is not None:
-                append_evidence_entries(run, command_results)
-        result = evaluate_quality(results)
-        print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+            results["_evidence"] = command_results
+            append_evidence_entries(run, command_results)
+        result = evaluate_quality(results, required_gates=tuple(results.keys()))
+        print(json.dumps(result.as_dict(), indent=2))
         return 0 if result.passed else 1
-    return 2
+    if args.command == "evidence":
+        manifest = create_evidence_manifest(run, _parse_entries(args.entry))
+        errors = validate_evidence_manifest(manifest, run.name)
+        print(json.dumps({"manifest": manifest, "valid": not errors, "errors": errors}, indent=2))
+        return 0 if not errors else 1
+    if args.command == "status":
+        print((run / "run.json").read_text(encoding="utf-8"))
+    elif args.command == "consensus":
+        print(json.dumps(calculate_consensus(run), indent=2))
+    elif args.command == "validate":
+        print(json.dumps(validate_run(run), indent=2))
+    return 0
